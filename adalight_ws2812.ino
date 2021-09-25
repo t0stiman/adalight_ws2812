@@ -7,8 +7,12 @@
  * @date: 11/22/2015
  */
 #include "FastLED.h"
-#define NUM_LEDS 240
-#define DATA_PIN 6
+
+//amount of LEDs
+#define NUM_LEDS 85
+
+//data pin of LEDs
+#define DATA_PIN 10
 
 // Baudrate, higher rate allows faster refresh rate and more LEDs (defined in /etc/boblight.conf)
 #define serialRate 115200
@@ -18,6 +22,14 @@ uint8_t prefix[] = {'A', 'd', 'a'}, hi, lo, chk, i;
 
 // Initialise LED-array
 CRGB leds[NUM_LEDS];
+
+//after this many milliseconds of receiving no input, the leds will turn off
+unsigned long timeoutTime = 4000;
+
+//true if leds are on
+bool ledsOn = false;
+
+// ====================================================
 
 void setup() {
   // Use NEOPIXEL to keep true colors
@@ -37,10 +49,20 @@ void setup() {
   Serial.print("Ada\n");
 }
 
-void loop() { 
+void loop() {
+  const auto startTime = millis();
+  
   // Wait for first byte of Magic Word
   for(i = 0; i < sizeof prefix; ++i) {
-    waitLoop: while (!Serial.available()) ;;
+
+    waitLoop: while (!Serial.available()){
+      //turn leds off if we didn't receive any input for timeoutTime milliseconds
+      if(ledsOn && millis() - startTime > timeoutTime){
+        turnLedsOff();
+        ledsOn = false;
+      }
+    };;
+
     // Check next byte in Magic Word
     if(prefix[i] == Serial.read()) continue;
     // otherwise, start over
@@ -79,4 +101,21 @@ void loop() {
   
   // Shows new values
   FastLED.show();
+  ledsOn = true;
+}
+
+void turnLedsOff(){
+  memset(leds, 0, NUM_LEDS * sizeof(struct CRGB));
+  // Read the transmission data and set LED values
+  for (uint8_t i = 0; i < NUM_LEDS; i++) {
+    byte r, g, b;    
+
+    leds[i].r = 0;
+    leds[i].g = 0;
+    leds[i].b = 0;
+  }
+  
+  // Shows new values
+  FastLED.show();
+  ledsOn = false;
 }
